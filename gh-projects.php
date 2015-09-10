@@ -10,21 +10,31 @@ License:     GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
+define('GHPROJECTS_CACHE', 'gh-projects-cache');
+define('GHPROJECTS_EXPIRE', 5 * MINUTE_IN_SECONDS);
+
 // Only makes sense to use in WP
-if ( !defined('WPINC') ) {
-    die;
-}
+if ( !defined('WPINC') ) { die; }
 
-// Return the newest repo in terms of recent pushed commit
-function cmp($a, $b) {
-    return strcmp($b->pushed_at, $a->pushed_at);
-}
-
-// [ghprojects user="username_here"]
+/**
+ * Output an unordered HTML list of github projects for a given user
+ *
+ * The format to use is:
+ *    [ghprojects user="username_here"]
+ * Output includes pushed time and repo description.
+ *
+ * @param array $atts from shortcode:
+ *  user        => GitHub user to fetch projects for
+ *  nofork      => whether forked repos should not be shown
+ *  clear_cache => Force clear the WP transient cache
+ *
+ * @return string html list of projects
+ */
 function ghprojects_func( $atts ) {
     $a = shortcode_atts( array(
-        'user'      => '',
-        'nofork'    => '',
+        'user'          => '',
+        'nofork'        => '',
+        'clear_cache'   => 0,
     ), $atts );
 
     if ($a['user'] === '') {
@@ -33,29 +43,12 @@ function ghprojects_func( $atts ) {
     }
 
     $user = urlencode($a['user']);
+    $all_projects = _get_github_projects($user, $a['clear_cache']);
 
-    // Create a stream
-    $opts = array(
-        'http' => array(
-            'method'    => "GET",
-            'header'    => "Accept: application/vnd.github.v3+json\r\n"
-                         . "User-Agent: $user\r\n"
-        )
-    );
-
-    $context = stream_context_create($opts);
-
-    // Open the file using the HTTP headers set above
-    $projects_json = file_get_contents(
-        "https://api.github.com/users/" . $user . "/repos",
-        false,
-        $context
-    );
-
-    $all_projects = json_decode($projects_json);
-
-    // Order by the 'pushed' time
-    usort($all_projects, "cmp");
+    if ($all_projects === false) {
+        error_log("Unable to retrieve GitHub projects for $user!");
+        return;
+    }
 
     $output = '<ul class="project-list">';
     foreach ($all_projects as $project) {
@@ -78,3 +71,53 @@ function ghprojects_func( $atts ) {
     return $output;
 }
 add_shortcode( 'ghprojects', 'ghprojects_func' );
+
+/**
+ * Fetch a GitHub users public projects
+ *
+ * @param string $user GitHub user whose projects we want
+ * @param boolean $clear_cache Force a clear of the WP transient cache
+ *
+ * @return array of projects
+ */
+function _get_github_projects($user, $clear_cache) {
+    // Currently we assume a cache hit will be for the correct user
+    $cache = get_transient(GHPROJECTS_CACHE);
+
+    if (($cache === false) || $clear_cache) {
+        error_log('cache miss');
+
+        $context = stream_context_create( array(
+            'http' => array(
+                'method'    => "GET",
+                'header'    => "Accept: application/vnd.github.v3+json\r\n"
+                             . "User-Agent: $user\r\n"
+            )
+        ) );
+
+        // Open the file using the HTTP headers set above
+        // User-Agent is a must for GitHub to respond
+        $projects_json = file_get_contents(
+            "https://api.github.com/users/" . $user . "/repos",
+            false,
+            $context
+        );
+
+        set_transient(GHPROJECTS_CACHE, $projects_json, GHPROJECTS_EXPIRE);
+
+    } else {
+        error_log('cache hit');
+        $projects_json = $cache;
+
+    }
+
+    // Order by the 'pushed' time
+    $all_projects = json_decode($projects_json);
+    usort($all_projects, "cmp");
+    return $all_projects;
+}
+
+// Return the newest repo in terms of recent pushed commit
+function cmp($a, $b) {
+    return strcmp($b->pushed_at, $a->pushed_at);
+}
