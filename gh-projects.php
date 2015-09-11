@@ -10,8 +10,11 @@ License:     GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
+// https://developer.github.com/v3/#rate-limiting
+// we make unauth'd requests, so the frequency can't be more often then once a
+// minute. Set to every 30 minutes which should be plenty for most users.
+define('GHPROJECTS_EXPIRE', 30 * MINUTE_IN_SECONDS);
 define('GHPROJECTS_CACHE', 'gh-projects-cache');
-define('GHPROJECTS_EXPIRE', 5 * MINUTE_IN_SECONDS);
 
 // Only makes sense to use in WP
 if ( !defined('WPINC') ) { die; }
