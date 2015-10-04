@@ -90,28 +90,30 @@ function _get_github_projects($user, $clear_cache) {
     if (($cache === false) || $clear_cache) {
         error_log('cache miss');
 
-        $context = stream_context_create( array(
-            'http' => array(
-                'method'    => "GET",
-                'header'    => "Accept: application/vnd.github.v3+json\r\n"
-                             . "User-Agent: $user\r\n"
+        $args = array(
+            "user-agent"    => $user,
+            'headers'       => array(
+                "Accept: application/vnd.github.v3+json",
             )
-        ) );
+        );
 
         // Open the file using the HTTP headers set above
         // User-Agent is a must for GitHub to respond
-        $projects_json = file_get_contents(
+        $resp = wp_remote_get(
             "https://api.github.com/users/" . $user . "/repos",
-            false,
-            $context
+            $args
         );
 
-        set_transient(GHPROJECTS_CACHE, $projects_json, GHPROJECTS_EXPIRE);
+        if( is_array($resp) ) {
+            $projects_json = $resp['body'];
+            set_transient(GHPROJECTS_CACHE, $projects_json, GHPROJECTS_EXPIRE);
+        } else {
+            return;
+        }
 
     } else {
         error_log('cache hit');
         $projects_json = $cache;
-
     }
 
     // Order by the 'pushed' time
