@@ -118,11 +118,30 @@ function _get_github_projects($user, $clear_cache) {
 
     // Order by the 'pushed' time
     $all_projects = json_decode($projects_json);
-    usort($all_projects, "cmp");
+    usort($all_projects, "pushed_cmp");
     return $all_projects;
 }
 
+/**
+ * Output basic styles for the GitHub listing
+ *
+ * In the future we could make this optional for flexibility but as the current
+ * sole user this is fine.
+ */
+function hook_gh_css() {
+    $output = "
+<style>
+.project-list { list-style-position: outside; }
+.project-item h3 { margin-bottom: 0; }
+.project-item h3 .date { float: right; }
+</style>\n";
+    echo $output;
+}
+add_action('wp_head','hook_gh_css');
+
+
 // Return the newest repo in terms of recent pushed commit
-function cmp($a, $b) {
+function pushed_cmp($a, $b) {
     return strcmp($b->pushed_at, $a->pushed_at);
 }
+
