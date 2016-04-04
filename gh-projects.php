@@ -131,7 +131,8 @@ function _get_github_projects($user, $clear_cache) {
 function hook_gh_css() {
     $output = "
 <style>
-.project-list { list-style-position: outside; }
+.project-list { list-style: none; margin-left: 0; margin-bottom: 40px; }
+.project-item { margin-bottom: 25px; }
 .project-item h3 { margin-bottom: 0; }
 .project-item h3 .date { float: right; }
 </style>\n";
