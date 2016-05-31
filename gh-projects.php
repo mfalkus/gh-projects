@@ -13,8 +13,9 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 // https://developer.github.com/v3/#rate-limiting
 // we make unauth'd requests, so the frequency can't be more often then once a
 // minute. Set to every 30 minutes which should be plenty for most users.
-define('GHPROJECTS_EXPIRE', 30 * MINUTE_IN_SECONDS);
-define('GHPROJECTS_CACHE', 'gh-projects-cache');
+define('GHPROJECTS_EXPIRE',     30 * MINUTE_IN_SECONDS);
+define('GHPROJECTS_CACHE',      'gh-projects-cache');
+define('GHPROJECTS_TEMPLATE',   'gh-projects-template.php');
 
 // Only makes sense to use in WP
 if ( !defined('WPINC') ) { die; }
@@ -53,27 +54,26 @@ function ghprojects_func( $atts ) {
         return;
     }
 
-    $output = '<ul class="project-list">';
+    if (locate_template(GHPROJECTS_TEMPLATE, true, true) != '') {
+        error_log("Custom GH Projects template loaded");
+    } else {
+        require_once(GHPROJECTS_TEMPLATE);
+    }
+
+    $output_1 = ghprojects_pre_list();
+    $output_2 = '';
     foreach ($all_projects as $project) {
         if ($project->fork && $a['nofork'] !== '') {
             continue;
         }
-
-        $output .= '<li class="project-item">'
-            . '<h3 class="project-title"><a href="' . $project->html_url . '">'
-                . $project->name
-            . '</a> '
-            . '<small class="date">'
-                . date('d M Y', strtotime($project->pushed_at))
-            . '</small>'
-            . '</h3>'
-            . '<p>' . $project->description . '</p>';
+        $output_2 .= ghprojects_list_project($project);
     }
-    $output .= '</ul>';
-    
-    return $output;
+    $output_3 = ghprojects_post_list();
+
+    return $output_1 . $output_2 . $output_3;
 }
 add_shortcode( 'ghprojects', 'ghprojects_func' );
+
 
 /**
  * Fetch a GitHub users public projects
